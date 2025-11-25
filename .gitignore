@@ -1,0 +1,70 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.eggs/
+pip-wheel-metadata/
+*.pyc
+*.pyo
+
+# Virtual environments
+.env
+.env/
+.venv/
+venv/
+ENV/
+env/
+.Python
+
+# Distribution / packaging
+build/
+dist/
+*.egg
+*.whl
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Test and coverage
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Logs
+*.log
+
+# Terraform
+# Ignore local plugin cache and terraform state files
+.terraform/
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*.tfvars
+*.tfvars.json
+
+# macOS
+*.DS_Store
+
+# Misc
+*.bak
+*.tmp
+
+# Docker
+docker-compose.override.yml
+
+# Keep model files (e.g. .pkl) unless explicitly large
+# Add model patterns here only if you want them ignored, e.g.:
+# models/*.pkl
