@@ -29,7 +29,6 @@ def carregar_modelo_global(model_path: str = None):
     try:
         print(f"Carregando modelo {arquivo_modelo} para a memória...")
         with open(arquivo_modelo, 'rb') as f:
-            # Usando sua lógica específica
             _modelo_carregado = CpuUnpickler(f).load()
 
         if hasattr(_modelo_carregado, 'eval'):

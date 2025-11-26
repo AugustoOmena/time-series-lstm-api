@@ -51,48 +51,76 @@ def validate_ticker_exists(func):
 def validate_date_rangefunc(func):
     @wraps(func)
     def wrapper(req, *args, **kwargs):
-
+        # 1. Extração dos dados
         start = getattr(req, 'init_date', None)
         end = getattr(req, 'end_date', None)
+        ticker = getattr(req, 'ticker', None)
+        
+        hoje = date.today()
+        limite_futuro = hoje + timedelta(days=60)
 
+        # 2. Validações de Lógica Temporal
         if end <= start:
             raise HTTPException(status_code=400, detail="A data final deve ser posterior à data inicial.")
+        
         if (end - start) < timedelta(days=60):
-            raise HTTPException(status_code=400, detail="Período inválido: a previsão entre datas exige pelo menos 2 meses (60 dias).")
+            raise HTTPException(status_code=400, detail="Período de intervalo muito curto: a previsão exige pelo menos 60 dias entre inicio e fim.")
+
+        if end > limite_futuro:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Data final muito distante. O modelo só permite previsões até 60 dias a partir de hoje ({limite_futuro})."
+            )
+
+        # 3. Validação de Histórico Mínimo (Que fizemos antes)
+        # Verifica se existe histórico antes do 'start' para alimentar o LSTM
+        lookback_date = start - timedelta(days=90)
+        try:
+            hist_check = yf.download(ticker, start=lookback_date, end=start, progress=False, auto_adjust=True)
+            if len(hist_check) < 30:
+                first_valid = hist_check.index[0].date() if not hist_check.empty else "desconhecida"
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Data inicial inválida para {ticker}. Histórico insuficiente antes de {start}. Tente a partir de {first_valid}."
+                )
+        except Exception as e:
+            if isinstance(e, HTTPException): raise e
+            # Em produção, logar o erro do yfinance mas talvez não bloquear o usuário
+            print(f"Aviso: Não foi possível validar histórico no YF: {e}")
 
         return func(req, *args, **kwargs)
     return wrapper
-
 
 def validate_has_date(func):
     @wraps(func)
     def wrapper(req, *args, **kwargs):
 
-        date_value = getattr(req, 'target_date', None)
+        target_date = getattr(req, 'date', getattr(req, 'target_date', None))
+        ticker = getattr(req, 'ticker', None)
 
-        if not date_value:
+        if not target_date:
+            raise HTTPException(status_code=400, detail="Data alvo não fornecida.")
+
+        hoje = date.today()
+        limite_futuro = hoje + timedelta(days=60)
+
+        if target_date > limite_futuro:
             raise HTTPException(
                 status_code=400, 
-                detail="O campo 'target_date' é obrigatório e não pode ser nulo."
+                detail=f"Data muito distante. O modelo limita previsões a no máximo 60 dias futuros ({limite_futuro})."
             )
 
-        if isinstance(date_value, (date, datetime)):
-            return func(req, *args, **kwargs)
-
-        # Se for String, validamos o formato YYYY-MM-DD
-        if isinstance(date_value, str):
-            try:
-                # O strptime lança ValueError se a data for inválida (ex: 2025-02-30)
-                datetime.strptime(date_value, "%Y-%m-%d")
-            except ValueError:
-                raise HTTPException(
+        lookback_date = target_date - timedelta(days=60)
+        try:
+            hist_check = yf.download(ticker, start=lookback_date, end=target_date, progress=False, auto_adjust=True)
+            if len(hist_check) < 30:
+                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Data inválida ou formato incorreto: '{date_value}'. Use AAAA-MM-DD."
+                    detail=f"Sem histórico suficiente para prever o dia {target_date}. O ticker {ticker} parece não ter dados suficientes neste período passado."
                 )
-        else:
-            # Caso venha um int ou outro tipo
-            raise HTTPException(status_code=400, detail="O campo 'date' deve ser uma data válida.")
+        except Exception as e:
+             if isinstance(e, HTTPException): raise e
+             print(f"Aviso YF: {e}")
 
         return func(req, *args, **kwargs)
-
     return wrapper
