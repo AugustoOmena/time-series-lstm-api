@@ -1,8 +1,9 @@
 from app.domain.services.avaluation_model_service import run_forecast, generate_recursive_forecast, obtemX_para_um_dia, getX_testY_test_Sliding_Window
 from app.schemas.ticker_request import TickerRequestBetweenDates, TickerRequest
 from app.domain.results.prediction_response_builder import PredictionResponseBuilder
+from app.config.settings import get_settings
 
-MODEL_VERSION = "lstm_39"
+settings = get_settings()
 
 def process_ticker(command: TickerRequestBetweenDates, model) -> dict:
     
@@ -32,7 +33,7 @@ def process_ticker(command: TickerRequestBetweenDates, model) -> dict:
 
     return (PredictionResponseBuilder()
             .set_ticker(command.ticker)
-            .set_metadata(model_version=MODEL_VERSION, period_type="janela_deslizante")
+            .set_metadata(model_version=settings.MODEL_VERSION, period_type="janela_deslizante")
             .add_batch_predictions(hist_dates, hist_preds, hist_actuals)
             .add_batch_predictions(fut_dates, fut_preds, []) 
             .build())
@@ -52,16 +53,8 @@ def process_ticker_single_day(command: TickerRequest, model) -> dict:
     pred = scaler.inverse_transform(test_predictions_norm)
     predicted_val = float(pred.reshape(-1)[0])
 
-    builder = PredictionResponseBuilder()
-    
-    builder.set_ticker(command.ticker)
-    builder.set_metadata(model_version=MODEL_VERSION, period_type="single_day")
-    
-    # O builder lida com a lógica: se actual_price for None, ele monta como 'forecast'
-    builder.add_prediction(
-        date=command.target_date, 
-        prediction=predicted_val, 
-        actual=actual_price
-    )
-
-    return builder.build()
+    return (PredictionResponseBuilder()
+            .set_ticker(command.ticker)
+            .set_metadata(model_version=settings.MODEL_VERSION, period_type="single_day")
+            .add_prediction(date=command.target_date, prediction=predicted_val, actual=actual_price)
+            .build())

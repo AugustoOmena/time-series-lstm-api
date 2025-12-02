@@ -2,6 +2,9 @@ from app.domain.services.ml_handler.ml_handler import carregar_modelo_global
 from contextlib import asynccontextmanager
 from app.routers import api as api_router
 from fastapi import FastAPI
+from app.config.settings import get_settings
+
+settings = get_settings()
 
 
 @asynccontextmanager
@@ -9,7 +12,7 @@ async def lifespan(app: FastAPI):
     # --- STARTUP ---
     print("🚀 [Startup] Carregando modelo LSTM na memória...")
     
-    caminho_modelo = './app/models/modelo_lstm_39.pkl' 
+    caminho_modelo = settings.MODEL_PATH 
     
     modelo = carregar_modelo_global(caminho_modelo)
     
