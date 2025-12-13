@@ -12,6 +12,21 @@ provider "aws" {
   region = var.region
 }
 
+# Obtém dados da conta atual
+data "aws_caller_identity" "current" {}
+
+# ---------------------------
+# DATA SOURCES (Segredos)
+# ---------------------------
+
+data "aws_secretsmanager_secret" "dd_api_key" {
+  name = "datadog/api_key"
+}
+
+# data "aws_secretsmanager_secret" "dd_app_key" {
+#   name = "datadog/app_key"
+# }
+
 # ---------------------------
 # ECR
 # ---------------------------
@@ -25,6 +40,8 @@ resource "aws_ecr_repository" "app" {
 # ---------------------------
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
+  enable_dns_support   = true 
+  enable_dns_hostnames = true
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -90,7 +107,6 @@ resource "aws_ecs_cluster" "main" {
   name = "fastapi-cluster"
 }
 
-
 # ---------------------------
 # ECS Task Definition
 # ---------------------------
@@ -98,34 +114,80 @@ resource "aws_ecs_task_definition" "app" {
   family                   = "fastapi-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
+  cpu                      = "512"
+  memory                   = "1024"
 
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
 
-  execution_role_arn = "arn:aws:iam::610520926426:role/LabRole"
-  task_role_arn      = "arn:aws:iam::610520926426:role/LabRole"
+  execution_role_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
+  task_role_arn      = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/LabRole"
 
   container_definitions = jsonencode([
+    # --- Container 1: Sua Aplicação (FastAPI) ---
     {
       name      = "app"
-      image = "610520926426.dkr.ecr.us-east-1.amazonaws.com/fastapi-example:latest"
+      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/fastapi-example:latest"
       essential = true
+      
+      # Força o uso do ddtrace-run caso o Dockerfile não tenha.
+      command   = ["ddtrace-run", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+      
       portMappings = [
         {
           containerPort = 8000
           hostPort      = 8000
         }
       ]
+      environment = [
+        # Configurações para enviar traces para o agente local
+        { name = "DD_AGENT_HOST", value = "localhost" },
+        { name = "DD_TRACE_AGENT_PORT", value = "8126" },
+        { name = "DD_SERVICE", value = "fastapi-app-lab" },
+        { name = "DD_ENV", value = "lab-fiap" },
+        { name = "DD_LOGS_INJECTION", value = "true" } # Relaciona Logs com Traces
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
           awslogs-group         = "/ecs/example-task"
-          awslogs-region        = "us-east-1" # Substitua pela sua região
-          awslogs-stream-prefix = "ecs"
+          awslogs-region        = "us-east-1"
+          awslogs-stream-prefix = "app"
+        }
+      }
+    },
+    
+    # --- Container 2: Datadog Agent (Sidecar) ---
+    {
+      name      = "datadog-agent"
+      image     = "public.ecr.aws/datadog/agent:latest"
+      essential = true
+      cpu       = 256 # Reserva metade da CPU para o agente (máximo)
+      memory    = 512 # Reserva metade da Memória
+      
+      environment = [
+        { name = "ECS_FARGATE", value = "true" },
+        { name = "DD_SITE", value = "datadoghq.com" },
+        
+        # Habilita coleta de processos e métricas do container
+        { name = "DD_PROCESS_AGENT_ENABLED", value = "true" } 
+      ]
+      
+      secrets = [
+        {
+          name      = "DD_API_KEY"
+          valueFrom = data.aws_secretsmanager_secret.dd_api_key.arn
+        }
+      ]
+      
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/example-task"
+          awslogs-region        = "us-east-1"
+          awslogs-stream-prefix = "datadog"
         }
       }
     }

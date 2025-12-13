@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  dd-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: dd-agent
+    restart: unless-stopped
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=${DD_DOGSTATSD_NON_LOCAL_TRAFFIC:-true}
+      - DD_PROCESS_AGENT_ENABLED=${DD_PROCESS_AGENT_ENABLED:-true}
+      - DD_LOGS_ENABLED=${DD_LOGS_ENABLED:-true}
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=${DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL:-true}
+      - DD_ENV=${DD_ENV:-development}
+      - DD_SERVICE=${DD_SERVICE:-ml-microservice}
+      - DD_VERSION=${DD_VERSION:-1.0.0}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    ports:
+      - "8126:8126/tcp"  # Tracer port
+      - "8125:8125/udp"  # DogStatsD port
+    networks:
+      - datadog-network
+
+  api:
+    build: .
+    container_name: ml-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DD_AGENT_HOST=dd-agent
+      - DD_AGENT_PORT=8126
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+      - DD_SERVICE=ml-microservice
+      - DD_ENV=${DD_ENV:-development}
+      - DD_TRACE_ENABLED=true
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - dd-agent
+    networks:
+      - datadog-network
+    volumes:
+      - ./:/app
+
+networks:
+  datadog-network:
+    driver: bridge

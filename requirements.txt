@@ -1,4 +1,5 @@
 fastapi
+ddtrace
 uvicorn[standard]
 numpy
 scikit-learn
