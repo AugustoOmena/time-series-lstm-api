@@ -55,12 +55,6 @@ Se não tiver, use uma role com, no mínimo:
 
 **Importante**: Ao finalizar, copie a ecr_url exibida no terminal. Você a usará como <ECR_URL> no próximo passo.
 
-### Nota sobre Datadog / secrets (simples)
-
-Antes de executar `terraform apply`, crie no AWS Secrets Manager (ou SSM) os segredos que sua aplicação/Datadog vai usar (com os nomes: `datadog/api_key` e `datadog/app_key`).
-
-Este repositório assume que os secrets já existem; crie-os via Console, CLI ou CI e só então rode o Terraform.
-
 ### Passo 4: Build + Push da imagem
 
 Volte para a raiz do projeto. O push pode demorar dependendo da sua conexão.
