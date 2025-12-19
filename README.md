@@ -14,47 +14,46 @@ Construir e rodar localmente:
 Acesse:
 http://localhost:8000
 
-## Para fazer o deploy e usar na nuvem:
+## Deploy na Nuvem (AWS)
 
 ### Pré requisitos:
 
-- ¹ Realize o Login na AWS (Explicado abaixo)
-- Tenha instalado o Terraform
-- Tenha instalado o AWS Cli
-- Tenha instalado o Docker e ativo.
+- Contas: AWS (com permissões de Admin ou LabRole) e Datadog.
 
-¹ Login na AWS (execute):
+- Ferramentas: Terraform, AWS CLI, Docker.
 
-            nano ~/.aws/credentials
+- Login AWS: Configure suas credenciais em ~/.aws/credentials.
 
-Substitua por suas credenciais atualizadas, feito.
+### Passo 1: Autenticação no ECR
 
-### Passo 1: Pegue o Login do ECR
-
-Use esse comando substituindo <AWS_ID> pelo seu ID da AWS:
+Antes de tudo, o Docker precisa de permissão para falar com a AWS. Substitua <AWS_ID> pelo seu ID da conta:
 
             aws ecr get-login-password --region us-east-1 | \
             docker login --username AWS --password-stdin <AWS_ID>.dkr.ecr.us-east-1.amazonaws.com
 
-### Passo 2: Criar o repositório ECR via Terraform
+### Passo 2: Configuração de Segredos (Datadog)
 
-#### Importante: Estou considerando que você tem a AWS role "LabRole" fornecida com as permissões necessárias.
+O Terraform espera que os segredos do Datadog já existam no AWS Secrets Manager. Execute os comandos abaixo para criá-los via CLI (mais rápido e seguro que o console):
+
+            aws secretsmanager create-secret --name "datadog/api_key" \
+            --description "Datadog API Key" --secret-string "COLE_SUA_API_KEY_AQUI"
+
+            aws secretsmanager create-secret --name "datadog/app_key" \
+            --description "Datadog APP Key" --secret-string "COLE_SUA_APP_KEY_AQUI"
+
+### Passo 3: Provisionamento da Infraestrutura (Terraform)
+
+Agora, vamos subir o ECR, Cluster ECS e Fargate.
+
+#### Nota: Este projeto utiliza a role LabRole. Certifique-se de que ela possui as políticas AmazonECSTaskExecutionRolePolicy e iam:PassRole.
 
 Se não tiver, use uma role com, no mínimo:
-
-- execution role: anexar `AmazonECSTaskExecutionRolePolicy` (ECR pull + CloudWatch Logs)
-- quem executa o Terraform precisa da permissão `iam:PassRole` para a role usada pela task
-
-Tendo as permissões, continue:
 
             cd infra
             terraform init
             terraform apply -auto-approve
 
-Ao executar com sucesso, vai retornar uma saída assim:
-ecr_url = "<AWS_ID>.dkr.ecr.us-east-1.amazonaws.com/fastapi-example"
-
-Copie o conteúdo entre aspas e use no passo 3.
+**Importante**: Ao finalizar, copie a ecr_url exibida no terminal. Você a usará como <ECR_URL> no próximo passo.
 
 ### Nota sobre Datadog / secrets (simples)
 
@@ -62,21 +61,9 @@ Antes de executar `terraform apply`, crie no AWS Secrets Manager (ou SSM) os seg
 
 Este repositório assume que os secrets já existem; crie-os via Console, CLI ou CI e só então rode o Terraform.
 
-### Passo 3: Build + Push da imagem
+### Passo 4: Build + Push da imagem
 
-Dicas:
-
-1. Pegue a saída que você copiou no passo 2 e cole em <ECR_URL>;
-2. Para executar, volte a raiz do projeto, onde se encontra o docker;
-3. Se estiver executando no Macbook Apple Silicon usar buildx.
-
-**Aviso: O Push pode demorar mais de 1h.**
-
-**Antes do push:** Confirme que o login no ECR funcionou
-(substitua <ECR_URL> pelo seu registry, ex: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com — ou use a saída do Terraform (`ecr_url`) gerada no passo 2)
-
-            aws ecr get-login-password --region us-east-1 \
-            | docker login --username AWS --password-stdin <ECR_URL>
+Volte para a raiz do projeto. O push pode demorar dependendo da sua conexão.
 
 Se você estiver no **Windows** ou Linux (x86_64), execute:
 
@@ -84,22 +71,18 @@ Se você estiver no **Windows** ou Linux (x86_64), execute:
             docker tag fastapi-example:latest <ECR_URL>:latest
             docker push <ECR_URL>:latest
 
-Se você estiver no **Mac Apple Silicon** (M1/M2/M3), execute:
+**Para Mac Apple Silicon (M1/M2/M3):** Essencial para evitar o erro exec format error no Fargate.
 
-            docker buildx build \
-            --platform=linux/amd64 \
-            -t <ECR_URL>:latest \
-            --push \
-            .
+            docker buildx build --platform=linux/amd64 -t <ECR_URL>:latest --push .
 
-Necessário para evitar o erro
-exec format error
-(porque o Fargate só roda imagens AMD64)
+### Passo 5: Acesso e Monitoramento
 
-### Passo 4 (Último passo): Acessar
+Aguarde alguns minutos para o serviço estabilizar no ECS.
 
-No Console AWS: Console AWS > ECS > Clusters > fastapi-cluster > Services > fastapi-service > Tasks > (selecionar task) > Network Interfaces → Public IP
+Vá ao Console AWS > ECS > Clusters > fastapi-cluster.
 
-http:<Public_IP>:8000/docs
+Clique em Services > fastapi-service > aba Tasks.
 
-Exemplo. 13.219.86.170:8000/docs
+Abra a Task ativa e copie o Public IP em Network Interfaces.
+
+Acesse: http://<PUBLIC_IP>:8000/docs
