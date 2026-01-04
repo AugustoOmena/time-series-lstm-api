@@ -129,7 +129,7 @@ resource "aws_ecs_task_definition" "app" {
     # --- Container 1: Sua Aplicação (FastAPI) ---
     {
       name      = "app"
-      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/fastapi-example:latest"
+      image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/fastapi-example:v2"
       essential = true
       
       # Força o uso do ddtrace-run caso o Dockerfile não tenha.

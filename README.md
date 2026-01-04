@@ -1,6 +1,6 @@
 # Tech Challenge 4
 
-### API para prever preços da bolsa de valores, treinado sobre o dataset do ITAÚ.
+### API de inferência para predição de ativos (ITUB4), implementada com FastAPI e implantada via Terraform em infraestrutura escalável AWS Fargate com monitoramento Datadog.
 
 # Como Executar
 

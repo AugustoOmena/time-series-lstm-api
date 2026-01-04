@@ -18,38 +18,38 @@ class CpuUnpickler(pickle.Unpickler):
 
         return super().find_class(module, name)
 
-# Variável global que guardará o modelo
-_modelo_carregado = None
+# Global variable that will hold the loaded model
+_loaded_model = None
 
-def carregar_modelo_global(model_path: str = None):
+def load_global_model(model_path: str = None):
     """
-    Carrega o modelo do disco para a memória global.
-    Deve ser chamado apenas UMA VEZ ao iniciar o app.
+    Load the model file into a global variable.
+    Intended to be called once at application startup.
     """
-    global _modelo_carregado
-    arquivo_modelo = model_path
+    global _loaded_model
+    model_file = model_path
 
     try:
-        logger.info("Carregando modelo %s para a memória...", arquivo_modelo)
-        with open(arquivo_modelo, 'rb') as f:
-            _modelo_carregado = CpuUnpickler(f).load()
+        logger.info("Loading model %s into memory...", model_file)
+        with open(model_file, 'rb') as f:
+            _loaded_model = CpuUnpickler(f).load()
 
-        if hasattr(_modelo_carregado, 'eval'):
-            _modelo_carregado.eval()
-            
-        logger.info("Modelo carregado com sucesso!")
-        return _modelo_carregado
+        if hasattr(_loaded_model, 'eval'):
+            _loaded_model.eval()
+
+        logger.info("Model loaded successfully!")
+        return _loaded_model
 
     except Exception as e:
-        logger.exception("FATAL: Erro ao carregar modelo: %s", e)
+        logger.exception("FATAL: Error loading model: %s", e)
         return None
 
-def obter_modelo():
+def get_model():
     """
-    Retorna a instância do modelo já carregado.
-    Se por acaso não estiver carregado, tenta carregar (Lazy Loading).
+    Return the already-loaded model instance.
+    If not present, attempt lazy-loading via `load_global_model()`.
     """
-    global _modelo_carregado
-    if _modelo_carregado is None:
-        return carregar_modelo_global()
-    return _modelo_carregado
+    global _loaded_model
+    if _loaded_model is None:
+        return load_global_model()
+    return _loaded_model

@@ -1,4 +1,4 @@
-from app.domain.services.ml_handler.ml_handler import carregar_modelo_global
+from app.domain.services.ml_handler.ml_handler import load_global_model
 from contextlib import asynccontextmanager
 from app.routers import api as api_router
 from fastapi import FastAPI
@@ -16,18 +16,18 @@ async def lifespan(app: FastAPI):
     configure_logging()
 
     # --- STARTUP ---
-    logger.info("[Startup] Carregando modelo LSTM na memória...")
+    logger.info("[Startup] Loading LSTM model into memory...")
 
-    caminho_modelo = settings.MODEL_PATH 
+    model_path = settings.MODEL_PATH
 
-    modelo = carregar_modelo_global(caminho_modelo)
+    model = load_global_model(model_path)
 
-    app.state.model = modelo
+    app.state.model = model
 
-    if modelo:
-        logger.info("[Startup] Modelo carregado e pronto.")
+    if model:
+        logger.info("[Startup] Model loaded and ready.")
     else:
-        logger.error("[Startup] Falha ao carregar modelo.")
+        logger.error("[Startup] Failed to load model.")
 
     yield 
 
