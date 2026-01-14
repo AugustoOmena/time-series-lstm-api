@@ -80,3 +80,66 @@ Clique em Services > fastapi-service > aba Tasks.
 Abra a Task ativa e copie o Public IP em Network Interfaces.
 
 Acesse: http://<PUBLIC_IP>:8000/docs
+
+## 🧪 Testes Automatizados
+
+Este projeto adota uma estratégia robusta de testes utilizando **Pytest**, focando na garantia da lógica de domínio e na integridade dos fluxos de dados sem depender de serviços externos instáveis.
+
+### 🏗️ Arquitetura de Testes
+
+A suíte de testes foi desenhada seguindo princípios de **Clean Architecture** e **S.O.L.I.D**, garantindo que a lógica de negócio (Domain Services) seja testada isoladamente da infraestrutura (APIs Externas, Banco de Dados).
+
+- **Framework:** `pytest` + `pytest-mock`
+- **Isolamento:** Uso extensivo de `unittest.mock` e `@patch` para simular chamadas ao Yahoo Finance e APIs de terceiros. Isso garante testes determinísticos, rápidos e que funcionam offline.
+- **Fixtures:** Utilização de `conftest.py` para geração de massa de dados e DataFrames complexos, mantendo os arquivos de teste limpos.
+
+### ⚙️ Configuração do Ambiente de Testes
+
+Para manter a imagem Docker de produção leve (`slim`), as ferramentas de teste não são instaladas no container principal. Elas devem ser executadas em ambiente local ou em estágio de CI/CD.
+
+1.  **Crie e ative seu ambiente virtual:**
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate  # Linux/Mac
+    # ou
+    .\venv\Scripts\activate   # Windows
+    ```
+2.  Instale as dependências de desenvolvimento: Nota: O arquivo requirements-dev.txt instala as libs do projeto + ferramentas de teste.
+
+         pip install -r requirements-dev.txt
+
+🚀 Executando os Testes
+Para rodar a suíte completa com output detalhado:
+
+         pytest -v
+
+Para rodar apenas os testes unitários de domínio:
+
+      pytest tests/unit -v
+
+📂 Estrutura de Testes
+Plaintext
+
+tests/
+├── conftest.py # Fixtures compartilhadas
+(Dados Mockados)
+├── unit/ # Testes de Unidade (Lógica de Negócio)
+│ ├── test_avaluation_service.py
+│ └── ...
+└── integration/ # Testes de Integração (Endpoints FastAPI)
+└── test_api_endpoints.py
+
+---
+
+### O que fazer agora (Dica Rápida):
+
+Como mencionamos o arquivo `requirements-dev.txt` no README, lembre-se de criá-lo na raiz do projeto (caso não tenha feito ainda) com este conteúdo para que o comando funcione:
+
+**Arquivo: `requirements-dev.txt`**
+
+```text
+-r requirements.txt
+pytest==8.0.0
+pytest-mock==3.12.0
+httpx==0.26.0
+```
